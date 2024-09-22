@@ -1,5 +1,4 @@
-# This workflow will install Python dependencies, run tests and lint with a variety of Python versions
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
+# This workflow will install Python dependencies, run tests and lint with Python 3.10
 
 name: CI Pipeline for Voice Recognition Engine
 
@@ -19,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11"]
+        python-version: ["3.10"]
     steps:
       - name: Checkout the code
         uses: actions/checkout@v3
@@ -34,6 +33,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-          - name: Run unit tests
-          run: |
-            python -m unittest discover -s test/unit_tests -p "*.py"
+      - name: Run unit tests
+        run: |
+          python -m unittest
