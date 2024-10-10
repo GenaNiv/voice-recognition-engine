@@ -1,12 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import librosa
-from src.feature_extraction.pre_emphasis import PreEmphasisFilter
-from src.feature_extraction.framing import Framing
-from src.feature_extraction.hamming_window import HammingWindow
-from src.feature_extraction.fft import FFTProcessor
-from src.feature_extraction.mel_filterbank import MelScaleFilterbank
-from src.feature_extraction.dct_processor import DCTProcessor, LogarithmCompression
+from feature_extraction.pre_emphasis import PreEmphasisFilter
+from feature_extraction.framing import Framing
+from feature_extraction.hamming_window import HammingWindow
+from feature_extraction.fft import FFTProcessor
+from feature_extraction.mel_filterbank import MelScaleFilterbank
+from feature_extraction.dct_processor import DCTProcessor, LogarithmCompression
 
 class AudioFeatureExtractor:
     def __init__(self, sample_rate=16000, frame_size=0.025, frame_step=0.01, fft_size=512, num_filters=26, num_ceps=13):

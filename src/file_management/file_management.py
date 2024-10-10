@@ -3,7 +3,7 @@ import os
 import time
 import hashlib
 
-import src.file_management.bst as bst
+import file_management.bst as bst
 
 
 class FileManagementBase(ABC):

@@ -1,4 +1,4 @@
-from src.gmm.gmm_gaussian import GMMGaussianModel 
+from gmm.gmm_gaussian import GMMGaussianModel 
 
 """
 GMM Factory Module

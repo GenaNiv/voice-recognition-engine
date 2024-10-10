@@ -2,7 +2,7 @@
 from sklearn.mixture import GaussianMixture
 import pickle
 
-from src.gmm.gmm_base import GMMModelBase
+from gmm.gmm_base import GMMModelBase
 
 class GMMGaussianModel(GMMModelBase):
     """
