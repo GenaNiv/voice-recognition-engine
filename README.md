@@ -46,14 +46,17 @@ To enroll a new speaker, use the `enroll` command followed by the speaker's name
 ```bash
 python cli.py enroll <speaker_name> <audio_file_path> [optional parameters]
 ```
-Optional Parameters:
---sample_rate: Sampling rate of the audio file (default: 16000)
---num_filters: Number of Mel filters (default: 26)
---num_ceps: Number of MFCC coefficients (default: 13)
---n_fft: FFT size for audio processing (default: 512)
---frame_size: Frame size in seconds (default: 0.025)
---frame_step: Frame step (overlap) in seconds (default: 0.01)
---n_mixtures: Number of Gaussian mixtures in GMM (default: 8)
+**Optional Parameters:**
+- `--sample_rate`: Sampling rate of the audio file (default: `16000`)
+- `--num_filters`: Number of Mel filters (default: `26`)
+- `--num_ceps`: Number of MFCC coefficients (default: `13`)
+- `--n_fft`: FFT size for audio processing (default: `512`)
+- `--frame_size`: Frame size in seconds (default: `0.025`)
+- `--frame_step`: Frame step (overlap) in seconds (default: `0.01`)
+- `--n_mixtures`: Number of Gaussian mixtures in GMM (default: `8`)
+
 
 **Example:**
+```bash
 python cli.py enroll gena /home/gena/audio_files/gena.wav --sample_rate 16000 --num_filters 40 --num_ceps 13 --n_fft 512 --frame_size 0.025 --frame_step 0.01 --n_mixtures 8
+```
