@@ -1,15 +1,16 @@
 import argparse
 import os
 
+from file_management.bst import BinarySearchTree
+from service.api import EnrollmentConfig, RecognitionConfig, VoiceRecognitionService
 from service.commands import (
     EnrollSpeakerCommand,
     RecognizeSpeakerCommand,
+    RecognizeStreamCommand,
     ListSpeakersCommand,
     DeleteSpeakerCommand,
     CommandHandler
 )
-from file_management.bst import BinarySearchTree
-from file_management.file_management import FileManagementInterface
 
 def setup_environment(base_directory):
     # Ensure the base directory for models, audio files, and metadata exists
@@ -52,6 +53,19 @@ def main(command_line_args=None):
     recognize_parser.add_argument('--fft_size', type=int, default=512, help='FFT size for audio processing')
     recognize_parser.add_argument('--num_filters', type=int, default=26, help='Number of Mel filters')
     recognize_parser.add_argument('--num_ceps', type=int, default=13, help='Number of MFCC coefficients')
+    recognize_parser.add_argument('--score_threshold', type=float, default=None, help='Minimum log-likelihood to accept a speaker match')
+
+    # Streaming recognition command
+    recognize_stream_parser = subparsers.add_parser('recognize_stream', help='Stream audio chunks to recognize a speaker in near real-time')
+    recognize_stream_parser.add_argument('audio_file', type=str, help='Path to the audio file')
+    recognize_stream_parser.add_argument('--sample_rate', type=int, default=16000, help='Sample rate of the audio stream')
+    recognize_stream_parser.add_argument('--frame_size', type=float, default=0.025, help='Frame size in seconds')
+    recognize_stream_parser.add_argument('--frame_step', type=float, default=0.01, help='Frame step (overlap) in seconds')
+    recognize_stream_parser.add_argument('--fft_size', type=int, default=512, help='FFT size for audio processing')
+    recognize_stream_parser.add_argument('--num_filters', type=int, default=26, help='Number of Mel filters')
+    recognize_stream_parser.add_argument('--num_ceps', type=int, default=13, help='Number of MFCC coefficients')
+    recognize_stream_parser.add_argument('--score_threshold', type=float, default=None, help='Minimum log-likelihood to accept a speaker match')
+    recognize_stream_parser.add_argument('--chunk_duration', type=float, default=0.5, help='Duration (seconds) of each streamed chunk')
 
     # List Speakers Command
     subparsers.add_parser('list_speakers', help='List all enrolled speakers')
@@ -72,79 +86,84 @@ def main(command_line_args=None):
     # Ensure environment setup
     setup_environment(base_directory)
 
-    # Initialize Binary Search Tree
-    bst = BinarySearchTree()  # Placeholder for actual binary search tree implementation
+    # Initialize Binary Search Tree and shared service
+    bst = BinarySearchTree()
+    service = VoiceRecognitionService(bst=bst, base_directory=base_directory)
 
     # Process the command based on the parsed arguments
     if args.command == 'enroll':
-        command = EnrollSpeakerCommand(
-            speaker_name=args.speaker_name,
-            audio_file=args.audio_file,
-            bst=bst,
-            base_directory=base_directory,
+        enroll_config = EnrollmentConfig(
             sample_rate=args.sample_rate,
             num_filters=args.num_filters,
             num_ceps=args.num_ceps,
-            n_fft=args.n_fft,
+            fft_size=args.n_fft,
             frame_size=args.frame_size,
             frame_step=args.frame_step,
-            n_mixtures=args.n_mixtures
+            mixtures=args.n_mixtures,
+        )
+        command = EnrollSpeakerCommand(
+            service=service,
+            speaker_name=args.speaker_name,
+            audio_file=args.audio_file,
+            config=enroll_config,
         )
         handler.run(command)
-        
-        # Serialize the BST before exiting the program
-        bst.serialize_bst()
 
     elif args.command == 'recognize':
-        command = RecognizeSpeakerCommand(
-            bst=bst,
-            audio_file=args.audio_file,
-            base_directory=base_directory,
+        recognize_config = RecognitionConfig(
             sample_rate=args.sample_rate,
             frame_size=args.frame_size,
             frame_step=args.frame_step,
             fft_size=args.fft_size,
             num_filters=args.num_filters,
-            num_ceps=args.num_ceps
+            num_ceps=args.num_ceps,
+        )
+        command = RecognizeSpeakerCommand(
+            service=service,
+            audio_file=args.audio_file,
+            config=recognize_config,
+            score_threshold=args.score_threshold
+        )
+        handler.run(command)
+
+    elif args.command == 'recognize_stream':
+        recognize_config = RecognitionConfig(
+            sample_rate=args.sample_rate,
+            frame_size=args.frame_size,
+            frame_step=args.frame_step,
+            fft_size=args.fft_size,
+            num_filters=args.num_filters,
+            num_ceps=args.num_ceps,
+        )
+        command = RecognizeStreamCommand(
+            service=service,
+            audio_file=args.audio_file,
+            config=recognize_config,
+            score_threshold=args.score_threshold,
+            chunk_duration=args.chunk_duration,
         )
         handler.run(command)
 
     elif args.command == 'list_speakers':
-        file_management = FileManagementInterface(bst=bst, base_directory=base_directory)
-        command = ListSpeakersCommand(file_management)
+        command = ListSpeakersCommand(service=service)
         handler.run(command)
 
     elif args.command == 'delete_speaker':
-        file_management = FileManagementInterface(bst=bst, base_directory=base_directory)
-        command = DeleteSpeakerCommand(args.speaker_name, file_management)
+        command = DeleteSpeakerCommand(service=service, speaker_name=args.speaker_name)
         handler.run(command)
 
     else:
         parser.print_help()
 
-if __name__ == "__main__":
-    #debug_args = [
-    #    'enroll',
-    #    'maria',
-    #    '/home/gena/PROJECTS/voice-recognition-engine/audio_files/maria.wav',
-    #    '--sample_rate', '16000',
-    #    '--num_filters', '40',
-    #    '--num_ceps', '13',
-    #    '--n_fft', '512',
-    #    '--frame_size', '0.025',
-    #    '--frame_step', '0.01',
-    #    '--n_mixtures', '8'
-    #]
-    
-    debug_args = [
-        'recognize',
-        '/home/gena/PROJECTS/voice-recognition-engine/audio_files/leah_recognize.wav',
-        '--sample_rate', '16000',
-        '--frame_size', '0.025',
-        '--frame_step', '0.01',
-        '--fft_size', '512',
-        '--num_filters', '40',
-        '--num_ceps', '13',
-    ]
+    # Persist BST state after command execution
+    bst.serialize_bst()
 
-    main(debug_args)
+if __name__ == "__main__":
+    # To run with ad-hoc arguments during development, pass them explicitly, e.g.:
+    # debug_args = [
+    #     'recognize',
+    #     '/path/to/audio.wav',
+    #     '--sample_rate', '16000',
+    # ]
+    # main(debug_args)
+    main()

@@ -1,5 +1,6 @@
 import os
-from src.speaker_enrollment import SpeakerEnrollment
+from src.service.speaker_enrollment import SpeakerEnrollment
+from src.service.speaker_recognition import SpeakerRecognition
 from src.file_management.bst import BinarySearchTree
 from src.file_management.file_management import FileManagementInterface
 
@@ -96,7 +97,18 @@ def test_speaker_enrollment():
     # Step 4: Test speaker recognition
     test_wav_file ="/home/gena/PROJECTS/voice-recognition-engine/audio_files/maria_recognize.wav"
     speaker_name = "maria_speaker"
-    recognized_speaker = speaker_enrollment.recognize_speaker(test_wav_file)
+    speaker_recognition = SpeakerRecognition(
+        bst=bst,
+        base_directory=base_directory,
+        sample_rate=16000,
+        frame_size=0.025,
+        frame_step=0.01,
+        fft_size=512,
+        num_filters=26,
+        num_ceps=13,
+    )
+
+    recognized_speaker = speaker_recognition.recognize_speaker(test_wav_file)
     
     if recognized_speaker == speaker_name:
         print("Speaker recognition test passed.")

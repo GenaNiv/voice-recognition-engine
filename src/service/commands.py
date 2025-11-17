@@ -1,10 +1,14 @@
 # Updated commands.py based on the provided details
 
 # commands.py
-import os
-from service.speaker_enrollment import SpeakerEnrollment
-from service.speaker_recognition import SpeakerRecognition
-from file_management.file_management import FileManagementInterface
+from service.api import (
+    EnrollmentConfig,
+    EnrollmentRequest,
+    RecognitionConfig,
+    RecognitionRequest,
+    VoiceRecognitionService,
+)
+from service.audio_sources import WavFileSource
 
 # Base Command class
 class Command:
@@ -14,84 +18,114 @@ class Command:
 
 # Command for enrolling a speaker
 class EnrollSpeakerCommand(Command):
-    def __init__(self, speaker_name, audio_file, bst, base_directory, 
-                 sample_rate, num_filters, num_ceps, n_fft, 
-                 frame_size, frame_step, n_mixtures):
+    def __init__(self, service: VoiceRecognitionService, speaker_name: str, audio_file: str, config: EnrollmentConfig):
+        self.service = service
         self.speaker_name = speaker_name
         self.audio_file = audio_file
-        self.bst = bst
-        self.base_directory = base_directory
-        self.sample_rate = sample_rate
-        self.num_filters = num_filters
-        self.num_ceps = num_ceps
-        self.n_fft = n_fft
-        self.frame_size = frame_size
-        self.frame_step = frame_step
-        self.n_mixtures = n_mixtures
+        self.config = config
 
     def execute(self):
         """Execute the enroll command by enrolling a new speaker."""
-        # Initialize SpeakerEnrollment with the provided parameters
-        speaker_enrollment = SpeakerEnrollment(
-            bst=self.bst, 
-            base_directory=self.base_directory, 
-            sample_rate=self.sample_rate, 
-            num_filters=self.num_filters, 
-            num_ceps=self.num_ceps, 
-            n_fft=self.n_fft, 
-            frame_size=self.frame_size, 
-            frame_step=self.frame_step, 
-            n_mixtures=self.n_mixtures
+        frame_length = max(1, int(self.config.frame_size * self.config.sample_rate))
+        source = WavFileSource(
+            self.audio_file,
+            frame_length=frame_length,
+            sample_rate=self.config.sample_rate,
         )
-
-        # Enroll the speaker using the provided parameters
-        success = speaker_enrollment.enroll_speaker(self.speaker_name, self.audio_file)
-        if success:
-            print(f"Speaker {self.speaker_name} enrolled successfully.")
-        else:
-            print(f"Failed to enroll speaker {self.speaker_name}.")
+        request = EnrollmentRequest(
+            speaker_id=self.speaker_name,
+            audio_source=source,
+            config=self.config,
+        )
+        result = self.service.enroll(request)
+        print(f"Speaker {result.speaker_id} enrolled successfully.")
+        print(f"Model stored at: {result.model_path}")
+        print(f"Metadata stored at: {result.metadata_path}")
 
 # Command for recognizing a speaker
 class RecognizeSpeakerCommand(Command):
-    def __init__(self, bst, audio_file, base_directory, sample_rate, frame_size, frame_step, fft_size, num_filters, num_ceps):
+    def __init__(self, service: VoiceRecognitionService, audio_file: str, config: RecognitionConfig, score_threshold: float | None):
+        self.service = service
         self.audio_file = audio_file
-        self.recognizer = SpeakerRecognition(
-            bst=bst,
-            base_directory=base_directory,
-            sample_rate=sample_rate,
-            frame_size=frame_size,
-            frame_step=frame_step,
-            fft_size=fft_size,
-            num_filters=num_filters,
-            num_ceps=num_ceps
-        )
+        self.config = config
+        self.score_threshold = score_threshold
 
     def execute(self):
         """Execute the recognize command to identify the speaker."""
-        recognized_speaker = self.recognizer.recognize_speaker(self.audio_file)
-        print(f"Recognized Speaker: {recognized_speaker}")
+        frame_length = max(1, int(self.config.frame_size * self.config.sample_rate))
+        source = WavFileSource(
+            self.audio_file,
+            frame_length=frame_length,
+            sample_rate=self.config.sample_rate,
+        )
+        request = RecognitionRequest(
+            audio_source=source,
+            threshold=self.score_threshold,
+            config=self.config,
+        )
+        result = self.service.recognize(request)
+        if result.speaker_id and not result.rejected:
+            print(f"Recognized Speaker: {result.speaker_id} (score {result.score:.4f})")
+        else:
+            print("No speaker matched the provided audio.")
+
+
+class RecognizeStreamCommand(Command):
+    def __init__(self, service: VoiceRecognitionService, audio_file: str, config: RecognitionConfig, score_threshold: float | None, chunk_duration: float):
+        self.service = service
+        self.audio_file = audio_file
+        self.config = config
+        self.score_threshold = score_threshold
+        self.chunk_duration = chunk_duration
+
+    def execute(self):
+        """Execute streaming recognition to simulate real-time processing."""
+        session = self.service.start_session(config=self.config, threshold=self.score_threshold)
+        frame_length = max(1, int(self.chunk_duration * self.config.sample_rate))
+        source = WavFileSource(
+            self.audio_file,
+            frame_length=frame_length,
+            sample_rate=self.config.sample_rate,
+        )
+        latest = None
+        for chunk in source.stream():
+            result = session.consume(chunk)
+            if result:
+                latest = result
+                if result.speaker_id and not result.rejected:
+                    print(f"Interim match: {result.speaker_id} (score {result.score:.4f})")
+        session.close()
+
+        if latest and latest.speaker_id and not latest.rejected:
+            print(f"Final recognized speaker: {latest.speaker_id} (score {latest.score:.4f})")
+        else:
+            print("No speaker matched the streaming audio.")
 
 # Command for listing all enrolled speakers
 class ListSpeakersCommand(Command):
-    def __init__(self, file_management):
-        self.file_management = file_management
+    def __init__(self, service: VoiceRecognitionService):
+        self.service = service
 
     def execute(self):
         """Execute the list speakers command to display all speakers."""
-        speakers = self.file_management.list_all_files()
+        speakers = self.service.list_speakers()
+        if not speakers:
+            print("No speakers enrolled.")
+            return
+
         print("Enrolled Speakers:")
         for speaker in speakers:
-            print(f"- {speaker['file_id']}")
+            print(f"- {speaker.speaker_id}: {speaker.metadata_path}")
 
 # Command for deleting a speaker
 class DeleteSpeakerCommand(Command):
-    def __init__(self, speaker_name, file_management):
+    def __init__(self, service: VoiceRecognitionService, speaker_name: str):
+        self.service = service
         self.speaker_name = speaker_name
-        self.file_management = file_management
 
     def execute(self):
         """Execute the delete command to remove a speaker."""
-        self.file_management.delete_file(self.speaker_name)
+        self.service.delete_speaker(self.speaker_name)
         print(f"Speaker {self.speaker_name} deleted successfully.")
 
 # CommandHandler to execute the commands
