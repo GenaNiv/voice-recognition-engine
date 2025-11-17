@@ -1,0 +1,23 @@
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environments
+.venv/
+venv/
+
+# Editor configs
+.idea/
+.vscode/
+
+# OS files
+.DS_Store
+
+# Audio/model outputs
+audio_files/
+test_environment/
+
+# Data/cache
+data/bst_data.pkl
+*.log

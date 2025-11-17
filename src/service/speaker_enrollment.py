@@ -53,32 +53,44 @@ class SpeakerEnrollment:
             bool: Returns True if enrollment is successful, False otherwise.
         """
         try:
-            # Step 1: Extract MFCC features from the audio file
             signal = self.audio_extractor.load_wav(wav_file_path)
-            mfcc_features = self.audio_extractor.extract_features(signal)
-
-            # Step 2: Train a GMM model using the extracted MFCC features
-            gmm_model = self.gmm_factory.create_gmm_model()
-            gmm_model.train(mfcc_features)
-
-            # Step 3: Save the GMM model using the file management system
-            # Create the relative path to save the model under "models" folder
-            model_filename = f"{speaker_name}_gmm_model.pkl"
-            model_file_path = os.path.join("models", model_filename)  # Relative path
-
-            # Serialize and save the GMM model
-            self.file_manager.add_file(model_file_path, gmm_model.serialize_model())
-
-            # Step 4: Save speaker metadata as well
-            file_content = f"Speaker: {speaker_name}\nGMM Model Path: {model_file_path}"
-            metadata_filename = f"{speaker_name}_metadata.txt"
-            metadata_file_path = os.path.join("metadata", metadata_filename)
-
-            self.file_manager.add_file(metadata_file_path, file_content)
-
+            self.enroll_from_signal(speaker_name, signal)
             print(f"Speaker '{speaker_name}' enrolled successfully.")
             return True
 
         except Exception as e:
             print(f"Error enrolling speaker: {e}")
             return False
+
+    def enroll_from_signal(self, speaker_name, signal):
+        """
+        Enroll a speaker using an in-memory signal (bypassing filesystem I/O).
+
+        Args:
+            speaker_name (str): The speaker identifier.
+            signal (numpy.ndarray): Raw PCM samples.
+
+        Returns:
+            tuple[str, str]: Relative paths to the persisted model and metadata.
+        """
+        # Step 1: Extract MFCC features from the audio signal
+        mfcc_features = self.audio_extractor.extract_features(signal)
+
+        # Step 2: Train a GMM model using the extracted MFCC features
+        gmm_model = self.gmm_factory.create_gmm_model()
+        gmm_model.train(mfcc_features)
+
+        # Step 3: Save the GMM model using the file management system
+        model_filename = f"{speaker_name}_gmm_model.pkl"
+        model_file_path = os.path.join("models", model_filename)
+
+        self.file_manager.add_file(model_file_path, gmm_model.serialize_model())
+
+        # Step 4: Save speaker metadata as well
+        file_content = f"Speaker: {speaker_name}\nGMM Model Path: {model_file_path}"
+        metadata_filename = f"{speaker_name}_metadata.txt"
+        metadata_file_path = os.path.join("metadata", metadata_filename)
+
+        self.file_manager.add_file(metadata_file_path, file_content)
+
+        return model_file_path, metadata_file_path
